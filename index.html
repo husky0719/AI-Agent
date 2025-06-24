@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>語音任務助理</title>
+  <style>
+    body { font-family: sans-serif; padding: 20px; background: #f4f4f4; }
+    h1 { text-align: center; }
+    button { padding: 10px 20px; margin: 10px 5px; }
+    ul { list-style: none; padding: 0; }
+    li { background: #fff; margin: 5px 0; padding: 10px; border-radius: 5px; display: flex; justify-content: space-between; }
+    li.done { text-decoration: line-through; color: gray; }
+  </style>
+</head>
+<body>
+
+<h1>📋 語音任務助理</h1>
+<button onclick="startListening()">🎤 說出任務</button>
+<button onclick="readUnfinished()">🔊 朗讀未完成</button>
+
+<ul id="taskList"></ul>
+
+<script>
+  const taskList = JSON.parse(localStorage.getItem('tasks') || '[]');
+  const listEl = document.getElementById('taskList');
+
+  function saveTasks() {
+    localStorage.setItem('tasks', JSON.stringify(taskList));
+  }
+
+  function renderList() {
+    listEl.innerHTML = '';
+    taskList.forEach((task, index) => {
+      const li = document.createElement('li');
+      li.className = task.done ? 'done' : '';
+      li.innerHTML = `
+        <span>${task.text}</span>
+        <button onclick="toggleDone(${index})">${task.done ? '✅' : '☑️'}</button>
+      `;
+      listEl.appendChild(li);
+    });
+  }
+
+  function toggleDone(index) {
+    taskList[index].done = !taskList[index].done;
+    saveTasks();
+    renderList();
+  }
+
+  function startListening() {
+    if (!('webkitSpeechRecognition' in window)) {
+      alert('你的瀏覽器不支援語音辨識');
+      return;
+    }
+
+    const recognition = new webkitSpeechRecognition();
+    recognition.lang = 'zh-TW';
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
+
+    recognition.onresult = function(event) {
+      const speech = event.results[0][0].transcript.trim();
+      if (speech) {
+        taskList.push({ text: speech, done: false });
+        saveTasks();
+        renderList();
+        speak(`已新增任務：${speech}`);
+      }
+    };
+
+    recognition.onerror = function(event) {
+      alert('語音辨識失敗，請再試一次');
+    };
+
+    recognition.start();
+  }
+
+  function readUnfinished() {
+    const tasks = taskList.filter(t => !t.done).map(t => t.text);
+    if (tasks.length === 0) {
+      speak('太棒了，你今天所有任務都完成了！');
+    } else {
+      const msg = `你還有 ${tasks.length} 項未完成：` + tasks.join('、');
+      speak(msg);
+    }
+  }
+
+  function speak(text) {
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = 'zh-TW';
+    speechSynthesis.speak(utterance);
+  }
+
+  renderList();
+</script>
+
+</body>
+</html>
